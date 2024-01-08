@@ -20,7 +20,7 @@ else
 	CFLAGS += -DNDEBUG -Oz -flto
 endif
 
-# CXXFLAGS = $(CFLAGS)
+CXXFLAGS = $(CFLAGS)
 
 # Linker flags
 LDFLAGS = -Wl,-zstack-size=14752,--no-entry,--import-memory -mexec-model=reactor \

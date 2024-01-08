@@ -1,6 +1,7 @@
 #include "wasm4.h"
 
 #include <string.h>
+#include <vector>
 
 #include "math.hpp"
 
@@ -90,13 +91,13 @@ void useColor(uint16_t i)
     *DRAW_COLORS = i;
 }
 
-void blitSpriteFrame(int index, int x, int y, int flags = BLIT_1BPP)
+void blitSpriteFrame(int index, int x, int y, uint32_t flags = BLIT_1BPP)
 {
-    const int srcW = 16;
-    const int srcH = 16;
-    const int stride = tilemapWidth;
-    const int srcX = (index % 20) * srcW;
-    const int srcY = (index / 20) * srcH;
+    const uint32_t srcW = 16;
+    const uint32_t srcH = 16;
+    const uint32_t stride = tilemapWidth;
+    const uint32_t srcX = ((uint32_t)index % 20) * srcW;
+    const uint32_t srcY = ((uint32_t)index / 20) * srcH;
 
     blitSub(tilemap, x, y, srcW, srcH, srcX, srcY, stride, flags);
 
@@ -116,15 +117,15 @@ void blitSpriteFrame(int index, int x, int y, int flags = BLIT_1BPP)
 
 void draw(const Projectile &p)
 {
-    rect(p.position.x, p.position.y, 1, 1);
+    rect((int)p.position.x, (int)p.position.y, 1, 1);
 }
 
 void draw(const Rect &r)
 {
-    rect(r.origin.x, r.origin.y, r.size.width, r.size.height);
+    rect((int)r.origin.x, (int)r.origin.y, (uint32_t)r.size.width, (uint32_t)r.size.height);
 }
 
-Entity player{{{80, 0}, {16, 16}}, {}, false};
+Entity player{{{80, 0}, {16, 16}}, {}, 0, {}, 0, nullptr};
 Rect tile = {{10, 10}, {10, 10}};
 Rect tiles[] = {
     {{0, 0}, {1, 160}},
@@ -234,8 +235,8 @@ void updatePlayer()
 {
     const float maxSpeed = 2.0f;
     const float jumpImpulse = 3.5f;
-    const float gravity = 0.15;
-    const float acc = 0.15;
+    const float gravity = 0.15f;
+    const float acc = 0.15f;
 
     Vec2 &o = player.bounds.origin;
     Vec2 &v = player.velocity;
@@ -253,7 +254,7 @@ void updatePlayer()
     }
     bool jump = (gamepad & BUTTON_UP);
 
-    v.x = (v.x * (1 - acc)) + (inputX * maxSpeed * acc);
+    v.x = (v.x * (1 - acc)) + ((float)inputX * maxSpeed * acc);
     if (v.x < -maxSpeed)
     {
         v.x = -maxSpeed;
@@ -283,7 +284,7 @@ void updatePlayer()
         }
     }
 
-    player.collisions = {false};
+    player.collisions = {false, false, false, false};
     for (const auto &tile : tiles)
     {
         updateForCollisionY(player, tile);
@@ -303,10 +304,10 @@ void updatePlayer()
             if (!p.active)
             {
                 p.position = player.bounds.origin;
-                p.velocity.x = player.directionX * 5.0f;
+                p.velocity.x = (float)player.directionX * 5.0f;
                 p.active = true;
 
-                player.velocity.x += -player.directionX * 0.1f;
+                player.velocity.x -= (float)player.directionX * 0.1f;
                 break;
             }
         }
@@ -428,12 +429,12 @@ void update()
     useColor(1);
     draw(player.bounds);
     useColor(2);
-    int flag = BLIT_1BPP;
+    uint32_t flag = BLIT_1BPP;
     if (player.directionX < 0)
     {
         flag |= BLIT_FLIP_X;
     }
-    blitSpriteFrame(player.sprite, player.bounds.origin.x, player.bounds.origin.y, flag);
+    blitSpriteFrame(player.sprite, (int)player.bounds.origin.x, (int)player.bounds.origin.y, flag);
     // blit(smiley, x + 1 + player.directionX, y + 1, 8, 8, BLIT_1BPP);
 
     bool c = false;
