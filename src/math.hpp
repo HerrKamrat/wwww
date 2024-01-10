@@ -33,3 +33,11 @@ struct Rect
   bool contains(const Vec2 &p) const;
   bool collision(const Rect &other) const;
 };
+
+struct Color
+{
+  uint8_t b;
+  uint8_t g;
+  uint8_t r;
+  uint8_t a;
+};

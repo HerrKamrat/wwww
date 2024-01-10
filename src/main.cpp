@@ -7,7 +7,9 @@
 #include "assets.hpp"
 #include "math.hpp"
 #include "entity.hpp"
+#include "renderer.hpp"
 
+Renderer renderer;
 // #include "assets/monochrome_tilemap_packed.hpp"
 
 constexpr uint16_t spriteIndex(uint16_t i, uint16_t j)
@@ -17,7 +19,7 @@ constexpr uint16_t spriteIndex(uint16_t i, uint16_t j)
 
 enum class SpriteFrame : uint16_t
 {
-    PlayerDefault = 12 * 20 + 0,
+    PlayerDefault = spriteIndex(0, 12),
     PlayerWalk1 = 12 * 20 + 1,
     PlayerWalk2 = 12 * 20 + 2
 };
@@ -32,69 +34,60 @@ bool debug = false;
 
 constexpr Tile t(int x, int y, int sprite)
 {
-    return {{{x * 16.f, y * 16.f}, {16, 8}}, sprite};
+    return {{{x * 16.f, y * 16.f}, {16, 16}}, sprite};
 }
 
-const int32_t width = 160;
-const int32_t height = 160;
-const Rect bounds = {{0, 0}, {width, height}};
-
-void setPalette(const uint32_t palette[4])
-{
-    PALETTE[0] = palette[0];
-    PALETTE[1] = palette[1];
-    PALETTE[2] = palette[2];
-    PALETTE[3] = palette[3];
-}
-
-void clear(uint8_t color)
-{
-    uint8_t i = color - 1;
-    memset(FRAMEBUFFER, i | (i << 2) | (i << 4) | (i << 6), width * height / 4);
-}
-
-void useColor(uint16_t i)
-{
-    *DRAW_COLORS = i;
-}
-
-void blitSpriteFrame(int index, int x, int y, uint32_t flags = BLIT_1BPP)
-{
-    const uint32_t srcW = 16;
-    const uint32_t srcH = 16;
-    const uint32_t stride = assets::tilemapWidth;
-    const uint32_t srcX = ((uint32_t)index % 20) * srcW;
-    const uint32_t srcY = ((uint32_t)index / 20) * srcH;
-
-    blitSub(assets::tilemap, x, y, srcW, srcH, srcX, srcY, stride, flags);
-}
-
-void draw(const Vec2 &v)
-{
-    rect((int)v.x, (int)v.y, 1, 1);
-}
-
-void draw(const Rect &r)
-{
-    rect((int)r.origin.x, (int)r.origin.y, (uint32_t)r.size.width, (uint32_t)r.size.height);
-}
+const Rect bounds = {{0, 0}, {SCREEN_SIZE, SCREEN_SIZE}};
 
 Entity player{{{80, 0}, {16, 16}}, {}, 0, {}, 0, nullptr};
 Tile tiles[] = {
+    t(0, 0, 19 + 20 * 14),
+    t(0, 1, 17 + 20 * 14),
+    t(0, 2, 17 + 20 * 14),
+    t(0, 3, 17 + 20 * 14),
+    t(0, 4, 17 + 20 * 14),
+    t(0, 5, 17 + 20 * 14),
+    t(0, 6, 17 + 20 * 14),
+    t(0, 7, 17 + 20 * 14),
+    t(0, 8, 17 + 20 * 14),
+    t(0, 9, 19 + 20 * 13),
+
+    t(9, 0, 19 + 20 * 11),
+    t(9, 1, 15 + 20 * 14),
+    t(9, 2, 15 + 20 * 14),
+    t(9, 3, 15 + 20 * 14),
+    t(9, 4, 15 + 20 * 14),
+    t(9, 5, 15 + 20 * 14),
+    t(9, 6, 15 + 20 * 14),
+    t(9, 7, 15 + 20 * 14),
+    t(9, 8, 15 + 20 * 14),
+    t(9, 9, 19 + 20 * 12),
+
+    t(1, 0, 16 + 20 * 15),
+    t(2, 0, 16 + 20 * 15),
+    t(3, 0, 17 + 20 * 15),
+
+    t(6, 0, 15 + 20 * 15),
+    t(7, 0, 16 + 20 * 15),
+    t(8, 0, 16 + 20 * 15),
+
+    t(1, 9, 16 + 20 * 13),
+    t(2, 9, 16 + 20 * 13),
+    t(3, 9, 17 + 20 * 13),
+
+    t(6, 9, 15 + 20 * 13),
+    t(7, 9, 16 + 20 * 13),
+    t(8, 9, 16 + 20 * 13),
+
+    t(3, 6, 84),
+    t(4, 6, 85),
+    t(5, 6, 85),
+    t(6, 6, 86),
+
     t(1, 3, 85),
     t(2, 3, 85),
     t(3, 3, 85),
-    t(4, 3, 85),
-
-    t(4, 6, 85),
-    t(5, 6, 85),
-    t(6, 6, 85),
-
-    t(1, 9, 85),
-    t(2, 9, 85),
-    t(3, 9, 85),
-    t(4, 9, 85),
-};
+    t(4, 3, 86)};
 
 Projectile projectiles[100] = {};
 
@@ -250,20 +243,12 @@ void updatePlayer()
         player.sprite = player.animation[index];
     }
 };
-/*
-bool outsideBounds(const Vec2 &p)
-{
-    return p.x < 0 || p.x > width || p.y < 0 || p.y > height;
-}
 
-bool inside(const Vec2 &p, const Rect &r)
-{
-    return p.x >= r.origin.x && p.x <= r.origin.x + r.size.width && p.y >= r.origin.y && p.y <= r.origin.y + r.size.height;
-}
-*/
 void update()
 {
     frame += 1;
+
+    renderer.setPalette(assets::palettes::default_gb);
 
     updatePlayer();
 
@@ -295,31 +280,27 @@ void update()
         }
     }
 
-    *DRAW_COLORS = 1;
-
-    clear(4);
-
-    setPalette(assets::palettes::default_gb);
+    renderer.clear(4);
 
     for (const auto &r : tiles)
     {
-        blitSpriteFrame(r.sprite, (int)r.bounds.origin.x, (int)r.bounds.origin.y);
+        renderer.drawSpriteFrame(r.sprite, (int)r.bounds.origin.x, (int)r.bounds.origin.y);
     }
 
     for (const Projectile &p : projectiles)
     {
         if (p.active)
-            draw(p.position);
+            renderer.draw(p.position);
     }
 
-    useColor(1);
+    renderer.useColor(1);
     uint32_t flag = BLIT_1BPP;
     if (player.directionX < 0)
     {
         flag |= BLIT_FLIP_X;
     }
-    blitSpriteFrame(player.sprite, (int)player.bounds.origin.x, (int)player.bounds.origin.y, flag);
-    // blit(smiley, x + 1 + player.directionX, y + 1, 8, 8, BLIT_1BPP);
+    renderer.drawSpriteFrame(player.sprite, (int)player.bounds.origin.x, (int)player.bounds.origin.y, flag);
+
     if (*GAMEPAD1 & BUTTON_2)
     {
         debug = !debug;
@@ -333,38 +314,19 @@ void update()
         }
         if (c)
         {
-            text("Collision", 10, 10);
+            renderer.drawText("Collision", 10, 10);
         }
         else
         {
-            text("No Collision", 10, 10);
+            renderer.drawText("No Collision", 10, 10);
         }
-        text(!player.collisions.up ? "[ ]" : "[x]", 25, 20);
-        text(!player.collisions.left ? "[ ]" : "[x]", 10, 30);
-        text(!player.collisions.right ? "[ ]" : "[x]", 40, 30);
-        text(!player.collisions.down ? "[ ]" : "[x]", 25, 40);
+        renderer.drawText(!player.collisions.up ? "[ ]" : "[x]", 25, 20);
+        renderer.drawText(!player.collisions.left ? "[ ]" : "[x]", 10, 30);
+        renderer.drawText(!player.collisions.right ? "[ ]" : "[x]", 40, 30);
+        renderer.drawText(!player.collisions.down ? "[ ]" : "[x]", 25, 40);
 
-        blitSpriteFrame(2 + 2 * 20, 10, 50);
+        renderer.drawSpriteFrame(2 + 2 * 20, 10, 50);
     }
-    /*
-        useColor(1);
-        rect(20, 16 * 5 + 10, 16, 16);
-        useColor(2);
-
-        blitSpriteFrame(4 * 20 + 5, 20, 16 * 5 + 10);
-    */
-    // blit(tilemap, 0, 0, tilemapWidth, tilemapHeight, BLIT_1BPP);
-    /*{
-        int frames[] = {0, 1};
-        int x = 16 + 16 * (frame / 10 % 2 + 1);
-        int y = 16 * 13;
-        int w = 16;
-        int h = 16;
-        int stride = tilemapWidth;
-
-        useColor(1);
-        blitSub(tilemap, 10, 50, w, h, x, y, stride, BLIT_1BPP);
-    }*/
 }
 
 #if 0
