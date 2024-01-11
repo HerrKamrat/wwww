@@ -10,7 +10,6 @@
 #include "renderer.hpp"
 
 Renderer renderer;
-// #include "assets/monochrome_tilemap_packed.hpp"
 
 constexpr uint16_t spriteIndex(uint16_t i, uint16_t j)
 {
@@ -90,6 +89,7 @@ Tile tiles[] = {
     t(4, 3, 86)};
 
 Projectile projectiles[100] = {};
+Entity entities[100] = {};
 
 void start()
 {
@@ -282,9 +282,9 @@ void update()
 
     renderer.clear(4);
 
-    for (const auto &r : tiles)
+    for (const auto &t : tiles)
     {
-        renderer.drawSpriteFrame(r.sprite, (int)r.bounds.origin.x, (int)r.bounds.origin.y);
+        t.render(renderer);
     }
 
     for (const Projectile &p : projectiles)
@@ -293,18 +293,13 @@ void update()
             renderer.draw(p.position);
     }
 
-    renderer.useColor(1);
-    uint32_t flag = BLIT_1BPP;
-    if (player.directionX < 0)
-    {
-        flag |= BLIT_FLIP_X;
-    }
-    renderer.drawSpriteFrame(player.sprite, (int)player.bounds.origin.x, (int)player.bounds.origin.y, flag);
-
+    player.render(renderer);
+#if 0
     if (*GAMEPAD1 & BUTTON_2)
     {
         debug = !debug;
     }
+
     if (debug)
     {
         bool c = false;
@@ -327,6 +322,7 @@ void update()
 
         renderer.drawSpriteFrame(2 + 2 * 20, 10, 50);
     }
+#endif
 }
 
 #if 0

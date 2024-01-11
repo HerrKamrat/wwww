@@ -1,6 +1,7 @@
 #pragma once
 
 #include "math.hpp"
+#include "renderer.hpp"
 
 struct Entity
 {
@@ -17,6 +18,9 @@ struct Entity
 
   int sprite;
   const int *animation;
+
+  void update();
+  void render(Renderer &renderer) const;
 };
 
 struct Projectile
@@ -24,10 +28,16 @@ struct Projectile
   Vec2 position;
   Vec2 velocity;
   bool active;
+
+  void update();
+  void render(Renderer &renderer) const;
 };
 
 struct Tile
 {
   Rect bounds;
   int sprite;
+
+  void update();
+  void render(Renderer &renderer) const;
 };
