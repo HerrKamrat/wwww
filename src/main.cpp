@@ -9,6 +9,133 @@
 #include "entity.hpp"
 #include "renderer.hpp"
 
+template <typename T, size_t size = 100>
+struct ObjectPool
+{
+    using Handle = uint32_t;
+    const static Handle invalid_handle = 0;
+
+    struct Slot
+    {
+        uint16_t check;
+        T object;
+    };
+
+    struct Iterator
+    {
+        Iterator(Slot *ptr, Slot *begin, Slot *end) : ptr(ptr), begin(begin), end(end)
+        {
+        }
+
+        Slot *ptr, *begin, *end;
+        T &operator*() const
+        {
+            return ptr->object;
+        }
+        bool operator!=(const Iterator &b) const
+        {
+            return ptr != b.ptr;
+        }
+
+        Iterator &operator++()
+        {
+            do
+            {
+                ptr++;
+            } while (ptr < end && ((ptr->check & 0x1) == 0));
+            return *this;
+        }
+    };
+
+    Slot objects[size];
+
+    Iterator begin()
+    {
+        auto begin = std::begin(objects);
+        auto end = std::end(objects);
+        Iterator it{begin - 1, begin, end};
+        return ++it;
+    }
+    Iterator end()
+    {
+        auto begin = std::begin(objects);
+        auto end = std::end(objects);
+        return {end, begin, end};
+    }
+
+    Handle alloc()
+    {
+        auto begin = std::begin(objects);
+        auto end = std::end(objects);
+        auto slot = std::find_if(std::begin(objects), std::end(objects), [](const Slot &slot)
+                                 { return (slot.check & 0x1) == 0; });
+        if (slot == std::end(objects))
+        {
+            trace("no slot");
+            return invalid_handle;
+        }
+
+        uint16_t check = slot->check = slot->check + 1;
+        uint16_t index = (uint16_t)std::distance(begin, slot);
+
+        tracef("alloc i: %d, c: %d", index, check);
+        return (Handle)(check << 16 | index);
+    };
+
+    Slot *getSlot(Handle handle)
+    {
+        uint16_t index = (uint16_t)handle;
+        uint16_t check = (uint16_t)(handle >> 16);
+        tracef("getSlot i: %d, c: %d", index, check);
+
+        if ((check & 0x1) == 0)
+        {
+            tracef("not active %d", check & 0x1);
+            return nullptr;
+        }
+
+        Slot &slot = objects[index];
+        if (slot.check != check)
+        {
+            return nullptr;
+        }
+
+        return &slot;
+    }
+
+    void free(T *obj)
+    {
+        // TODO : check address distance instead
+        auto slot = std::find_if(std::begin(objects), std::end(objects), [obj](const Slot &slot)
+                                 { return &slot.object == obj; });
+
+        if (slot <= std::end(objects))
+        {
+            slot->check += 1;
+        }
+    };
+
+    void free(Handle handle)
+    {
+        auto slot = getSlot(handle);
+        if (slot)
+        {
+            slot->check += 1;
+        }
+    };
+
+    T *get(Handle handle)
+    {
+        auto slot = getSlot(handle);
+        if (slot)
+        {
+            return &(slot->object);
+        }
+        tracef("get: %d, no slot", handle);
+        return nullptr;
+    };
+};
+
 Renderer renderer;
 
 constexpr uint16_t spriteIndex(uint16_t i, uint16_t j)
@@ -89,10 +216,44 @@ Tile tiles[] = {
     t(4, 3, 86)};
 
 Projectile projectiles[100] = {};
-Entity entities[100] = {};
+ObjectPool<Projectile, 10> projectilesPool;
+
+// Entity entities[100] = {};
 
 void start()
 {
+#if 0
+    /*uint16_t index = 12;
+    uint16_t check = 13;
+
+    int32_t handle = ((check << 1) | (index << 16) | 0x1);
+    int32_t h1 = ((check << 1) | (index << 16) | 0x0);
+
+    uint16_t i1 = (uint16_t)(handle >> 16);
+    uint16_t c1 = (uint16_t)(handle >> 1);
+
+    tracef("%d, %d, %d, %d", index, check, i1, c1);
+    tracef("%d, %d", handle & 0x1, h1 & 0x1);*/
+    ObjectPool<Projectile, 2> pool;
+    auto h1 = pool.alloc();
+    auto h2 = pool.alloc();
+    // auto h3 = pool.alloc();
+    auto o = pool.get(h1);
+    auto o2 = pool.get(h2);
+    //
+    o = pool.get(h1);
+    o2 = pool.get(h2);
+    // auto h4 = pool.alloc();
+    pool.free(h1);
+    o->position.x = 10;
+    o2->position.x = 10;
+
+    for (auto &p : pool)
+    {
+        tracef("Point: %f x %f", p.position.x, p.position.y);
+    }
+#endif
+
     player.directionX = 1;
 
     for (auto &p : projectiles)
@@ -217,6 +378,7 @@ void updatePlayer()
 
     if (gamepad & BUTTON_1)
     {
+#if 0
         for (Projectile &p : projectiles)
         {
             if (!p.active)
@@ -235,6 +397,24 @@ void updatePlayer()
                 break;
             }
         }
+#endif
+
+        auto handle = projectilesPool.alloc();
+        if (handle != projectilesPool.invalid_handle)
+        {
+            auto &p = *projectilesPool.get(handle);
+            p.position = player.bounds.origin;
+            // p.position.x += player.bounds.size.width / 2.0f;
+            if (player.directionX > 0)
+            {
+                p.position.x += player.bounds.size.width;
+            }
+            p.position.y += player.bounds.size.height / 2.0f;
+            p.velocity.x = (float)player.directionX * 5.0f;
+            p.active = true;
+
+            player.velocity.x -= (float)player.directionX * 0.1f;
+        }
     }
 
     if (player.animation && player.animation[0] > 0)
@@ -251,7 +431,7 @@ void update()
     renderer.setPalette(assets::palettes::default_gb);
 
     updatePlayer();
-
+#if 0
     for (Projectile &p : projectiles)
     {
         if (p.active)
@@ -279,6 +459,27 @@ void update()
             p.position.y += p.velocity.y;
         }
     }
+#endif
+
+    for (auto &p : projectilesPool)
+    {
+        if (!bounds.contains(p.position))
+        {
+            projectilesPool.free(&p);
+            continue;
+        }
+
+        for (const auto &tile : tiles)
+        {
+            if (tile.bounds.contains(p.position))
+            {
+                projectilesPool.free(&p);
+            }
+        }
+
+        p.position.x += p.velocity.x;
+        p.position.y += p.velocity.y;
+    }
 
     renderer.clear(4);
 
@@ -287,7 +488,14 @@ void update()
         t.render(renderer);
     }
 
+#if 0
     for (const Projectile &p : projectiles)
+    {
+        if (p.active)
+            renderer.draw(p.position);
+    }
+#endif
+    for (const Projectile &p : projectilesPool)
     {
         if (p.active)
             renderer.draw(p.position);
