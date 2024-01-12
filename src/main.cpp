@@ -215,51 +215,27 @@ Tile tiles[] = {
     t(3, 3, 85),
     t(4, 3, 86)};
 
-Projectile projectiles[100] = {};
 ObjectPool<Projectile, 10> projectilesPool;
-
-// Entity entities[100] = {};
+ObjectPool<Tile, 124> tilePool;
 
 void start()
 {
-#if 0
-    /*uint16_t index = 12;
-    uint16_t check = 13;
-
-    int32_t handle = ((check << 1) | (index << 16) | 0x1);
-    int32_t h1 = ((check << 1) | (index << 16) | 0x0);
-
-    uint16_t i1 = (uint16_t)(handle >> 16);
-    uint16_t c1 = (uint16_t)(handle >> 1);
-
-    tracef("%d, %d, %d, %d", index, check, i1, c1);
-    tracef("%d, %d", handle & 0x1, h1 & 0x1);*/
-    ObjectPool<Projectile, 2> pool;
-    auto h1 = pool.alloc();
-    auto h2 = pool.alloc();
-    // auto h3 = pool.alloc();
-    auto o = pool.get(h1);
-    auto o2 = pool.get(h2);
-    //
-    o = pool.get(h1);
-    o2 = pool.get(h2);
-    // auto h4 = pool.alloc();
-    pool.free(h1);
-    o->position.x = 10;
-    o2->position.x = 10;
-
-    for (auto &p : pool)
-    {
-        tracef("Point: %f x %f", p.position.x, p.position.y);
-    }
-#endif
+    // clang-format off
+    int map[] = {
+        1,1,1,1,1,0,1,1,1,1,1,
+        1,0,0,0,0,0,0,0,0,0,1,
+        1,0,0,0,0,0,0,0,0,0,1,
+        1,0,0,0,1,1,1,0,0,0,1,
+        1,0,0,0,0,0,0,0,0,0,1,
+        1,0,0,0,0,0,0,0,0,0,1,
+        1,0,0,0,0,0,0,0,0,0,1,
+        1,0,0,0,0,0,0,0,0,0,1,
+        1,0,0,0,0,0,0,0,0,0,1,
+        1,1,1,1,1,0,1,1,1,1,1,
+    };
+    // clang-format on
 
     player.directionX = 1;
-
-    for (auto &p : projectiles)
-    {
-        p.active = false;
-    }
 }
 
 const float padding = 1.5f;
@@ -378,27 +354,6 @@ void updatePlayer()
 
     if (gamepad & BUTTON_1)
     {
-#if 0
-        for (Projectile &p : projectiles)
-        {
-            if (!p.active)
-            {
-                p.position = player.bounds.origin;
-                // p.position.x += player.bounds.size.width / 2.0f;
-                if (player.directionX > 0)
-                {
-                    p.position.x += player.bounds.size.width;
-                }
-                p.position.y += player.bounds.size.height / 2.0f;
-                p.velocity.x = (float)player.directionX * 5.0f;
-                p.active = true;
-
-                player.velocity.x -= (float)player.directionX * 0.1f;
-                break;
-            }
-        }
-#endif
-
         auto handle = projectilesPool.alloc();
         if (handle != projectilesPool.invalid_handle)
         {
@@ -431,35 +386,6 @@ void update()
     renderer.setPalette(assets::palettes::default_gb);
 
     updatePlayer();
-#if 0
-    for (Projectile &p : projectiles)
-    {
-        if (p.active)
-        {
-            if (!bounds.contains(p.position))
-            {
-                p.active = false;
-                continue;
-            }
-
-            for (const auto &tile : tiles)
-            {
-                if (tile.bounds.contains(p.position))
-                {
-                    p.active = false;
-                    break;
-                }
-            }
-
-            if (!p.active)
-            {
-                continue;
-            }
-            p.position.x += p.velocity.x;
-            p.position.y += p.velocity.y;
-        }
-    }
-#endif
 
     for (auto &p : projectilesPool)
     {
@@ -488,13 +414,6 @@ void update()
         t.render(renderer);
     }
 
-#if 0
-    for (const Projectile &p : projectiles)
-    {
-        if (p.active)
-            renderer.draw(p.position);
-    }
-#endif
     for (const Projectile &p : projectilesPool)
     {
         if (p.active)
@@ -502,35 +421,6 @@ void update()
     }
 
     player.render(renderer);
-#if 0
-    if (*GAMEPAD1 & BUTTON_2)
-    {
-        debug = !debug;
-    }
-
-    if (debug)
-    {
-        bool c = false;
-        for (auto &tile : tiles)
-        {
-            c = c || player.bounds.collision(tile.bounds);
-        }
-        if (c)
-        {
-            renderer.drawText("Collision", 10, 10);
-        }
-        else
-        {
-            renderer.drawText("No Collision", 10, 10);
-        }
-        renderer.drawText(!player.collisions.up ? "[ ]" : "[x]", 25, 20);
-        renderer.drawText(!player.collisions.left ? "[ ]" : "[x]", 10, 30);
-        renderer.drawText(!player.collisions.right ? "[ ]" : "[x]", 40, 30);
-        renderer.drawText(!player.collisions.down ? "[ ]" : "[x]", 25, 40);
-
-        renderer.drawSpriteFrame(2 + 2 * 20, 10, 50);
-    }
-#endif
 }
 
 #if 0
