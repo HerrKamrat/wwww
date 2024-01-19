@@ -6,8 +6,13 @@ CC = "$(WASI_SDK_PATH)/bin/clang" --sysroot="$(WASI_SDK_PATH)/share/wasi-sysroot
 CXX = "$(WASI_SDK_PATH)/bin/clang++" --sysroot="$(WASI_SDK_PATH)/share/wasi-sysroot"
 
 # Optional dependency from binaryen for smaller builds
-WASM_OPT = wasm-opt
-WASM_OPT_FLAGS = -Oz --zero-filled-memory --strip-producers --detect-features
+WASM_OPT_BIN = "wasm-opt"
+ifdef WASM_OPT_PATH
+	WASM_OPT = "$(WASM_OPT_PATH)/$(WASM_OPT_BIN)"
+else
+	WASM_OPT = "$(WASM_OPT_BIN)"
+endif
+WASM_OPT_FLAGS = -Oz --zero-filled-memory --strip-producers --enable-bulk-memory
 
 # Whether to build for debugging instead of release
 DEBUG = 0
@@ -20,10 +25,8 @@ else
 	CFLAGS += -DNDEBUG -Oz -flto
 endif
 
-CXXFLAGS = $(CFLAGS)
-
 # Linker flags
-LDFLAGS = -Wl,-zstack-size=14752,--no-entry,--import-memory -mexec-model=reactor \
+LDFLAGS = -Wl,-zstack-size=14752,--no-check-features,--no-entry,--import-memory -mexec-model=reactor \
 	-Wl,--initial-memory=65536,--max-memory=65536,--stack-first
 ifeq ($(DEBUG), 1)
 	LDFLAGS += -Wl,--export-all,--no-gc-sections
@@ -56,6 +59,9 @@ all: build/cart.wasm
 
 # Link cart.wasm from all object files and run wasm-opt
 build/cart.wasm: $(OBJECTS)
+ifneq (, $(shell command -v $(WASM_OPT_BIN)))
+	$(warning WARNING: having wasm-opt in path might result in errors when linking with clang)
+endif
 	$(CXX) -o $@ $(OBJECTS) $(LDFLAGS)
 ifneq ($(DEBUG), 1)
 ifeq (, $(shell command -v $(WASM_OPT)))
@@ -73,7 +79,7 @@ build/%.o: src/%.c
 # Compile C++ sources
 build/%.o: src/%.cpp
 	@$(MKDIR_BUILD)
-	$(CXX) -c $< -o $@ $(CXXFLAGS)
+	$(CXX) -c $< -o $@ $(CFLAGS)
 
 .PHONY: clean
 clean:
