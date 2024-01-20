@@ -8,6 +8,16 @@ struct Entity
   Rect bounds;
   Vec2 velocity;
   int directionX;
+  struct Input
+  {
+    bool up;
+    bool down;
+    bool left;
+    bool right;
+    bool primaryAction;
+    bool secondaryAction;
+  } input;
+
   struct Collisions
   {
     bool up;
@@ -18,6 +28,12 @@ struct Entity
 
   int sprite;
   const int *animation;
+
+  struct Animations
+  {
+    const int *idle;
+    const int *walk;
+  } animations;
 
   void update();
   void render(Renderer &renderer) const;

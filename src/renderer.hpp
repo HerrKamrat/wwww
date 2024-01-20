@@ -4,8 +4,12 @@
 
 class Renderer
 {
-
 public:
+  /// @brief set the viewport to {x, y}, {x + SCREEN_SIZE, y + SCREEN_SIZE}
+  /// @param x
+  /// @param y
+  void setViewport(int x, int y);
+
   void setPalette(const uint32_t palette[4]);
 
   void clear(uint8_t color);
@@ -17,4 +21,5 @@ public:
   void drawText(const char *text, int x, int y);
 
 private:
+  Vec2 cameraPosition = {0, 0};
 };

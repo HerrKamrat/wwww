@@ -1,7 +1,7 @@
 #include "wasm4.h"
 
-#include <string.h>
 #include <array>
+#include <utility>
 
 #include "app.hpp"
 #include "assets.hpp"
@@ -71,26 +71,36 @@ struct ObjectPool
                                  { return (slot.check & 0x1) == 0; });
         if (slot == std::end(objects))
         {
-            trace("no slot");
+            trace("no available object in pool");
             return invalid_handle;
         }
 
         uint16_t check = slot->check = slot->check + 1;
         uint16_t index = (uint16_t)std::distance(begin, slot);
 
-        tracef("alloc i: %d, c: %d", index, check);
         return (Handle)(check << 16 | index);
+    };
+
+    template <typename... Args>
+    Handle create(Args &&...args)
+    {
+        auto handle = alloc();
+        if (handle)
+        {
+            auto ptr = get(handle);
+            T t{std::forward<Args>(args)...};
+            *ptr = T{std::forward<Args>(args)...};
+        }
+        return handle;
     };
 
     Slot *getSlot(Handle handle)
     {
         uint16_t index = (uint16_t)handle;
         uint16_t check = (uint16_t)(handle >> 16);
-        tracef("getSlot i: %d, c: %d", index, check);
 
         if ((check & 0x1) == 0)
         {
-            tracef("not active %d", check & 0x1);
             return nullptr;
         }
 
@@ -105,13 +115,21 @@ struct ObjectPool
 
     void free(T *obj)
     {
-        // TODO : check address distance instead
-        auto slot = std::find_if(std::begin(objects), std::end(objects), [obj](const Slot &slot)
-                                 { return &slot.object == obj; });
+        const char *ptr = reinterpret_cast<const char *>(obj);
+        const char *first = reinterpret_cast<const char *>(&std::begin(objects)->object);
 
-        if (slot <= std::end(objects))
+        if (ptr < first)
         {
-            slot->check += 1;
+            return;
+        }
+
+        auto s = sizeof(Slot);
+        auto d = static_cast<decltype(s)>(std::distance(first, ptr));
+        auto i = d / s;
+
+        if (i >= 0 && i < size && (objects[i].check & 0x1) != 0)
+        {
+            objects[i].check += 1;
         }
     };
 
@@ -146,14 +164,22 @@ constexpr uint16_t spriteIndex(uint16_t i, uint16_t j)
 enum class SpriteFrame : uint16_t
 {
     PlayerDefault = spriteIndex(0, 12),
-    PlayerWalk1 = 12 * 20 + 1,
-    PlayerWalk2 = 12 * 20 + 2
+    PlayerWalk1 = spriteIndex(1, 12), // 12 * 20 + 1,
+    PlayerWalk2 = spriteIndex(2, 12), // 12 * 20 + 2,
+
+    EnemyDefault = spriteIndex(0, 16),
+    EnemyWalk1 = spriteIndex(1, 16),
+    EnemyWalk2 = spriteIndex(2, 16),
+
 };
 
 inline const std::array<SpriteFrame, 1> arr = {SpriteFrame::PlayerDefault};
 
 inline const int player_idle_animation[] = {1, (int)SpriteFrame::PlayerDefault};
 inline const int player_walk_animation[] = {2, (int)SpriteFrame::PlayerWalk1, (int)SpriteFrame::PlayerWalk2};
+
+inline const int enemy_idle_animation[] = {1, (int)SpriteFrame::EnemyDefault};
+inline const int enemy_walk_animation[] = {2, (int)SpriteFrame::EnemyWalk1, (int)SpriteFrame::EnemyWalk2};
 
 int frame = 0;
 bool debug = false;
@@ -165,7 +191,7 @@ constexpr Tile t(int x, int y, int sprite)
 
 const Rect bounds = {{0, 0}, {SCREEN_SIZE, SCREEN_SIZE}};
 
-Entity player{{{80, 0}, {16, 16}}, {}, 0, {}, 0, nullptr};
+Entity player{{{80, 0}, {16, 16}}, {}, 0, {}, {}, 0, nullptr, {player_idle_animation, player_walk_animation}};
 Tile tiles[] = {
     t(0, 0, 19 + 20 * 14),
     t(0, 1, 17 + 20 * 14),
@@ -215,11 +241,23 @@ Tile tiles[] = {
     t(3, 3, 85),
     t(4, 3, 86)};
 
-ObjectPool<Projectile, 10> projectilesPool;
+ObjectPool<Projectile, 100> projectilesPool;
 ObjectPool<Tile, 124> tilePool;
+ObjectPool<Entity, 100> enemies;
 
 void start()
 {
+    // renderer.setViewport(8, 8);
+    {
+        ObjectPool<Entity, 2> test;
+        auto h1 = test.alloc();
+        auto h2 = test.alloc();
+        auto o1 = test.get(h1);
+        auto o2 = test.get(h2);
+        test.free(o1);
+        test.free(o2);
+    }
+
     // clang-format off
     int map[] = {
         1,1,1,1,1,0,1,1,1,1,1,
@@ -285,29 +323,36 @@ void updateForCollisionY(Entity &entity, const Rect &rect)
         }
     }
 }
-
-void updatePlayer()
+/*struct Input
 {
-    const float maxSpeed = 2.0f;
+    bool left;
+    bool right;
+    bool jump;
+    bool primaryAction;
+    bool secondaryAction;
+};*/
+
+void updatePlayer(Entity &entity)
+{
+    const float maxSpeed = 1.0f;
     const float jumpImpulse = 4.f;
     const float gravity = 0.15f;
     const float acc = 0.15f;
 
-    Vec2 &o = player.bounds.origin;
-    Vec2 &v = player.velocity;
+    Vec2 &o = entity.bounds.origin;
+    Vec2 &v = entity.velocity;
 
-    const uint8_t gamepad = *GAMEPAD1;
-    int inputX = (gamepad & BUTTON_RIGHT ? 1 : 0) - (gamepad & BUTTON_LEFT ? 1 : 0);
+    int inputX = (entity.input.right ? 1 : 0) - (entity.input.left ? 1 : 0);
     if (inputX != 0)
     {
-        player.directionX = inputX;
-        player.animation = player_walk_animation;
+        entity.directionX = inputX;
+        entity.animation = entity.animations.walk;
     }
     else
     {
-        player.animation = player_idle_animation;
+        entity.animation = entity.animations.idle;
     }
-    bool jump = (gamepad & BUTTON_UP);
+    bool jump = (entity.input.up);
 
     v.x = (v.x * (1 - acc)) + ((float)inputX * maxSpeed * acc);
     if (v.x < -maxSpeed)
@@ -323,59 +368,68 @@ void updatePlayer()
 
     if (jump)
     {
-        if (player.collisions.down)
+        if (entity.collisions.down)
         {
             v.y = -jumpImpulse;
         }
-        else if (player.collisions.left)
+        else if (entity.collisions.left)
         {
             v.y = -jumpImpulse;
             v.x = jumpImpulse;
         }
-        else if (player.collisions.right)
+        else if (entity.collisions.right)
         {
             v.y = -jumpImpulse / 1.4f;
             v.x = -jumpImpulse / 1.4f;
         }
     }
 
-    player.collisions = {false, false, false, false};
+    entity.collisions = {false, false, false, false};
     for (const auto &tile : tiles)
     {
-        updateForCollisionY(player, tile.bounds);
+        updateForCollisionY(entity, tile.bounds);
     }
     for (const auto &tile : tiles)
     {
-        updateForCollisionX(player, tile.bounds);
+        updateForCollisionX(entity, tile.bounds);
     }
 
     o.x += v.x;
     o.y += v.y;
 
-    if (gamepad & BUTTON_1)
+    if (o.y >= SCREEN_SIZE)
+    {
+        o.y -= SCREEN_SIZE;
+    }
+    else if (o.y + bounds.size.height <= 0)
+    {
+        o.y += SCREEN_SIZE;
+    }
+
+    if (entity.input.primaryAction)
     {
         auto handle = projectilesPool.alloc();
         if (handle != projectilesPool.invalid_handle)
         {
             auto &p = *projectilesPool.get(handle);
-            p.position = player.bounds.origin;
-            // p.position.x += player.bounds.size.width / 2.0f;
-            if (player.directionX > 0)
+            p.position = entity.bounds.origin;
+            // p.position.x += entity.bounds.size.width / 2.0f;
+            if (entity.directionX > 0)
             {
-                p.position.x += player.bounds.size.width;
+                p.position.x += entity.bounds.size.width;
             }
-            p.position.y += player.bounds.size.height / 2.0f;
-            p.velocity.x = (float)player.directionX * 5.0f;
+            p.position.y += entity.bounds.size.height / 2.0f;
+            p.velocity.x = (float)entity.directionX * 5.0f;
             p.active = true;
 
-            player.velocity.x -= (float)player.directionX * 0.1f;
+            entity.velocity.x -= (float)entity.directionX * 0.1f;
         }
     }
 
-    if (player.animation && player.animation[0] > 0)
+    if (entity.animation && entity.animation[0] > 0)
     {
-        const int index = (frame / 10 % player.animation[0]) + 1;
-        player.sprite = player.animation[index];
+        const int index = (frame / 10 % entity.animation[0]) + 1;
+        entity.sprite = entity.animation[index];
     }
 };
 
@@ -383,9 +437,39 @@ void update()
 {
     frame += 1;
 
-    renderer.setPalette(assets::palettes::default_gb);
+    if (frame % (60 * 2) == 0)
+    {
+        Entity enemy{{{80, 0}, {16, 16}}, {}, 0, {false, false, true, false, false, false}, {}, 0, nullptr, {enemy_idle_animation, enemy_walk_animation}};
+        enemies.create(enemy);
+        // enemies.create();
+    }
 
-    updatePlayer();
+    renderer.setPalette(assets::palettes::default_gb);
+    {
+        const uint8_t gamepad = *GAMEPAD1;
+        Entity::Input &input = player.input;
+        input.up = gamepad & BUTTON_UP;
+        input.left = gamepad & BUTTON_LEFT;
+        input.right = gamepad & BUTTON_RIGHT;
+        input.primaryAction = gamepad & BUTTON_1;
+        input.secondaryAction = gamepad & BUTTON_2;
+        updatePlayer(player);
+    }
+
+    for (auto &enemy : enemies)
+    {
+        updatePlayer(enemy);
+        if (enemy.collisions.left)
+        {
+            enemy.input.left = false;
+            enemy.input.right = true;
+        }
+        else if (enemy.collisions.right)
+        {
+            enemy.input.left = true;
+            enemy.input.right = false;
+        }
+    }
 
     for (auto &p : projectilesPool)
     {
@@ -395,12 +479,31 @@ void update()
             continue;
         }
 
+        bool free = false;
+        for (auto &e : enemies)
+        {
+            if (e.bounds.contains(p.position))
+            {
+                projectilesPool.free(&p);
+                enemies.free(&e);
+                free = true;
+                break;
+            }
+        }
+
         for (const auto &tile : tiles)
         {
             if (tile.bounds.contains(p.position))
             {
                 projectilesPool.free(&p);
+                free = true;
+                break;
             }
+        }
+
+        if (free)
+        {
+            continue;
         }
 
         p.position.x += p.velocity.x;
@@ -421,7 +524,12 @@ void update()
     }
 
     player.render(renderer);
+    for (auto &enemy : enemies)
+    {
+        enemy.render(renderer);
+    }
 }
+#if 0
 
 #if 0
 
@@ -437,4 +545,5 @@ void update()
     app.update();
 }
 
+#endif
 #endif
