@@ -1,0 +1,7 @@
+{{#sprites}}
+// v. 1.0.0 {{name}}
+inline const int {{name}}Width = {{width}};
+inline const int {{name}}Height = {{height}};
+inline const int {{name}}Flags = {{flagsHumanReadable}};
+inline const uint8_t {{name}}[{{length}}] = { {{bytes}} };
+{{/sprites}}

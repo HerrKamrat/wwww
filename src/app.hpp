@@ -2,12 +2,11 @@
 
 #include "renderer.hpp"
 
-class App
-{
-public:
-  void start();
-  void update();
+class App {
+  public:
+    void start();
+    void update();
 
-private:
-  Renderer renderer;
+  private:
+    Renderer renderer;
 };

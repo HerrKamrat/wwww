@@ -247,17 +247,6 @@ ObjectPool<Entity, 100> enemies;
 
 void start()
 {
-    // renderer.setViewport(8, 8);
-    {
-        ObjectPool<Entity, 2> test;
-        auto h1 = test.alloc();
-        auto h2 = test.alloc();
-        auto o1 = test.get(h1);
-        auto o2 = test.get(h2);
-        test.free(o1);
-        test.free(o2);
-    }
-
     // clang-format off
     int map[] = {
         1,1,1,1,1,0,1,1,1,1,1,
@@ -274,6 +263,8 @@ void start()
     // clang-format on
 
     player.directionX = 1;
+    renderer.setPalette(assets::palettes::lava_gb);
+    renderer.useColor(0x4321);
 }
 
 const float padding = 1.5f;
@@ -323,14 +314,6 @@ void updateForCollisionY(Entity &entity, const Rect &rect)
         }
     }
 }
-/*struct Input
-{
-    bool left;
-    bool right;
-    bool jump;
-    bool primaryAction;
-    bool secondaryAction;
-};*/
 
 void updatePlayer(Entity &entity)
 {
@@ -444,7 +427,7 @@ void update()
         // enemies.create();
     }
 
-    renderer.setPalette(assets::palettes::default_gb);
+    // renderer.setPalette(assets::palettes::default_gb);
     {
         const uint8_t gamepad = *GAMEPAD1;
         Entity::Input &input = player.input;
@@ -510,6 +493,7 @@ void update()
         p.position.y += p.velocity.y;
     }
 
+    renderer.useColor(0x0321);
     renderer.clear(4);
 
     for (const auto &t : tiles)
@@ -528,9 +512,21 @@ void update()
     {
         enemy.render(renderer);
     }
-}
-#if 0
 
+    renderer.setViewport(0, 0);
+
+    /*renderer.useColor(1);
+    renderer.draw({{0, 0}, {16, 16}});
+    renderer.useColor(2);
+    renderer.draw({{16, 0}, {16, 16}});
+    renderer.useColor(3);
+    renderer.draw({{32, 0}, {16, 16}});
+    renderer.useColor(4);
+    renderer.draw({{48, 0}, {16, 16}});
+*/
+
+    renderer.drawSpriteFrame(0, 0, 0);
+}
 #if 0
 
 App app;
@@ -545,5 +541,4 @@ void update()
     app.update();
 }
 
-#endif
 #endif

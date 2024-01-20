@@ -1,9 +1,7 @@
 #include "app.hpp"
 
-void App::start()
-{
+void App::start() {
 }
 
-void App::update()
-{
+void App::update() {
 }
