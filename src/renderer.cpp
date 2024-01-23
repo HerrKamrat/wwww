@@ -49,3 +49,15 @@ void Renderer::drawSpriteFrame(int index, int x, int y, bool flipX, bool flipY, 
 void Renderer::drawText(const char* text, int x, int y) {
     ::text(text, x + (int)(cameraPosition.x), y + (int)(cameraPosition.y));
 }
+
+void Renderer::drawText(std::span<char> text, int x, int y) {
+    if (text.end() != std::find(text.begin(), text.end(), '\0')) {
+        drawText(text.data(), x, y);
+    } else {
+        char tmp[2] = " ";
+        for (int i = 0; i < text.size(); i++) {
+            tmp[0] = text[i];
+            drawText(tmp, x + i * 8, y);
+        }
+    }
+}

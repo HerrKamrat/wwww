@@ -1,6 +1,7 @@
 #include "wasm4.h"
 
 #include <array>
+#include <stdio.h>
 #include <utility>
 
 #include "app.hpp"
@@ -9,155 +10,40 @@
 #include "math.hpp"
 #include "object_pool.hpp"
 #include "renderer.hpp"
+#include "utils.hpp"
 
-#if 0
-template <typename T, size_t size = 100>
-struct ObjectPool
-{
-    using Handle = uint32_t;
-    const static Handle invalid_handle = 0;
+struct GameState {
+    int health = 3;
+    int score = 100;
+};
 
-    struct Slot
-    {
-        uint16_t check;
-        T object;
-    };
+GameState state;
 
-    struct Iterator
-    {
-        Iterator(Slot *ptr, Slot *begin, Slot *end) : ptr(ptr), begin(begin), end(end)
-        {
+class Gui {
+  public:
+    void update(){};
+    void render(Renderer& renderer) {
+        renderer.setViewport(0, 0);
+
+        renderer.useColor(0x0024);
+        renderer.draw({{8, 0}, {16 * 3, 14}});
+        renderer.draw({{104, 0}, {16 * 3, 14}});
+
+        renderer.useColor(2);
+        for (int i = 0; i < state.health; i++) {
+            renderer.drawSpriteFrame(assets::SpriteFrame::Hearth, 8 + 16 * i, -1);
         }
 
-        Slot *ptr, *begin, *end;
-        T &operator*() const
-        {
-            return ptr->object;
-        }
-        bool operator!=(const Iterator &b) const
-        {
-            return ptr != b.ptr;
-        }
-
-        Iterator &operator++()
-        {
-            do
-            {
-                ptr++;
-            } while (ptr < end && ((ptr->check & 0x1) == 0));
-            return *this;
-        }
-    };
-
-    Slot objects[size];
-
-    Iterator begin()
-    {
-        auto begin = std::begin(objects);
-        auto end = std::end(objects);
-        Iterator it{begin - 1, begin, end};
-        return ++it;
-    }
-    Iterator end()
-    {
-        auto begin = std::begin(objects);
-        auto end = std::end(objects);
-        return {end, begin, end};
-    }
-
-    Handle alloc()
-    {
-        auto begin = std::begin(objects);
-        auto end = std::end(objects);
-        auto slot = std::find_if(std::begin(objects), std::end(objects), [](const Slot &slot)
-                                 { return (slot.check & 0x1) == 0; });
-        if (slot == std::end(objects))
-        {
-            trace("no available object in pool");
-            return invalid_handle;
-        }
-
-        uint16_t check = slot->check = slot->check + 1;
-        uint16_t index = (uint16_t)std::distance(begin, slot);
-
-        return (Handle)(check << 16 | index);
-    };
-
-    template <typename... Args>
-    Handle create(Args &&...args)
-    {
-        auto handle = alloc();
-        if (handle)
-        {
-            auto ptr = get(handle);
-            T t{std::forward<Args>(args)...};
-            *ptr = T{std::forward<Args>(args)...};
-        }
-        return handle;
-    };
-
-    Slot *getSlot(Handle handle)
-    {
-        uint16_t index = (uint16_t)handle;
-        uint16_t check = (uint16_t)(handle >> 16);
-
-        if ((check & 0x1) == 0)
-        {
-            return nullptr;
-        }
-
-        Slot &slot = objects[index];
-        if (slot.check != check)
-        {
-            return nullptr;
-        }
-
-        return &slot;
-    }
-
-    void free(T *obj)
-    {
-        const char *ptr = reinterpret_cast<const char *>(obj);
-        const char *first = reinterpret_cast<const char *>(&std::begin(objects)->object);
-
-        if (ptr < first)
-        {
-            return;
-        }
-
-        auto s = sizeof(Slot);
-        auto d = static_cast<decltype(s)>(std::distance(first, ptr));
-        auto i = d / s;
-
-        if (i >= 0 && i < size && (objects[i].check & 0x1) != 0)
-        {
-            objects[i].check += 1;
-        }
-    };
-
-    void free(Handle handle)
-    {
-        auto slot = getSlot(handle);
-        if (slot)
-        {
-            slot->check += 1;
-        }
-    };
-
-    T *get(Handle handle)
-    {
-        auto slot = getSlot(handle);
-        if (slot)
-        {
-            return &(slot->object);
-        }
-        tracef("get: %d, no slot", handle);
-        return nullptr;
+        char buffer[8] = {'\0'};
+        auto str = to_string(state.score, buffer);
+        renderer.drawText({str.begin(), str.end()}, 103 + 8 + (6 - str.size()) * 8, 4);
     };
 };
 
-#endif
+#if !defined(X)
+
 Renderer renderer;
+Gui gui;
 
 int frame = 0;
 bool debug = false;
@@ -192,7 +78,7 @@ Tile tiles[] = {t(0, 0, 19 + 20 * 14), t(0, 1, 17 + 20 * 14), t(0, 2, 17 + 20 * 
 
 ObjectPool<Projectile, 100> projectilesPool;
 ObjectPool<Tile, 124> tilePool;
-ObjectPool<Entity, 100> enemies;
+ObjectPool<Entity, 2> enemies;
 
 void start() {
     // clang-format off
@@ -382,6 +268,7 @@ void doUpdate() {
                 projectilesPool.free(&p);
                 enemies.free(&e);
                 free = true;
+                state.score += 25;
                 break;
             }
         }
@@ -401,6 +288,8 @@ void doUpdate() {
         p.position.x += p.velocity.x;
         p.position.y += p.velocity.y;
     }
+
+    gui.update();
 }
 
 void doRender() {
@@ -420,26 +309,24 @@ void doRender() {
         enemy.render(renderer);
     }
 
-    renderer.setViewport(0, 0);
-    renderer.drawSpriteFrame(0, 0, 0);
+    gui.render(renderer);
 }
 
 void update() {
     doUpdate();
     doRender();
 }
-#if 0
+#else
 
 App app;
 
-void start()
-{
+void start() {
     app.start();
 }
 
-void update()
-{
+void update() {
     app.update();
+    app.render();
 }
 
 #endif

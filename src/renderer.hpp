@@ -3,6 +3,10 @@
 #include "math.hpp"
 #include "wasm4.h"
 
+#include "assets.hpp"
+
+#include <span>
+
 class Renderer {
   public:
     enum class BitsPerPixel : uint32_t {
@@ -23,8 +27,13 @@ class Renderer {
     void draw(const Rect& r);
     void drawSpriteFrame(int index, int x, int y, bool flipX = false, bool flipY = false,
                          BitsPerPixel bbp = BitsPerPixel::Two);
+    void drawSpriteFrame(assets::SpriteFrame frame, int x, int y, bool flipX = false, bool flipY = false,
+                         BitsPerPixel bbp = BitsPerPixel::Two) {
+        drawSpriteFrame((int)frame, x, y, flipX, flipY, bbp);
+    };
 
     void drawText(const char* text, int x, int y);
+    void drawText(std::span<char> text, int x, int y);
 
   private:
     Vec2 cameraPosition = {0, 0};

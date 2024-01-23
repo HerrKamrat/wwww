@@ -20,6 +20,8 @@ enum class SpriteFrame : uint16_t {
     EnemyDefault = spriteIndex(0, 16),
     EnemyWalk1 = spriteIndex(1, 16),
     EnemyWalk2 = spriteIndex(2, 16),
+
+    Hearth = spriteIndex(1, 2),
 };
 
 inline const std::array<SpriteFrame, 1> arr = {SpriteFrame::PlayerDefault};

@@ -1,5 +1,6 @@
 #pragma once
 
+#include <algorithm>
 #include <stddef.h>
 
 template <typename T, size_t size = 100>

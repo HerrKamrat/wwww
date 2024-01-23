@@ -6,6 +6,7 @@ class App {
   public:
     void start();
     void update();
+    void render();
 
   private:
     Renderer renderer;
