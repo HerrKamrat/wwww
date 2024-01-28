@@ -4,6 +4,8 @@
 #include <array>
 #include <stdint.h>
 
+#include "assets/sprite.hpp"
+
 namespace assets {
 // #include "assets/monochrome_tilemap_packed.hpp"
 #include "assets/tilemap.hpp"

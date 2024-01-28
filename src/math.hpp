@@ -1,5 +1,6 @@
 #pragma once
 
+#include <cstdlib>
 #include <stdint.h>
 
 struct Vec2 {
@@ -7,6 +8,43 @@ struct Vec2 {
 
     value_type x;
     value_type y;
+
+    Vec2& operator+=(Vec2 const& other) {
+        x += other.x;
+        y += other.y;
+        return *this;
+    }
+
+    Vec2& operator-=(Vec2 const& other) {
+        x -= other.x;
+        y -= other.y;
+        return *this;
+    }
+
+    Vec2 operator+(const Vec2& other) const {
+        Vec2 out = *this;
+        out += other;
+        return out;
+    };
+
+    Vec2 operator-(const Vec2& other) const {
+        Vec2 out = *this;
+        out -= other;
+        return out;
+    };
+
+    Vec2 operator*(const value_type& other) const {
+        Vec2 out = *this;
+        out.x *= other;
+        out.y *= other;
+        return out;
+    };
+    Vec2 operator/(const value_type& other) const {
+        Vec2 out = *this;
+        out.x /= other;
+        out.y /= other;
+        return out;
+    };
 };
 
 struct Size {
@@ -34,6 +72,12 @@ struct Rect {
     inline value_type bottom() const {
         return origin.y + size.height;
     };
+    inline value_type width() const {
+        return size.width;
+    };
+    inline value_type height() const {
+        return size.height;
+    };
 
     bool contains(const Vec2& p) const;
     bool collision(const Rect& other) const;
@@ -45,3 +89,10 @@ struct Color {
     uint8_t r;
     uint8_t a;
 };
+
+namespace math {
+
+float random();
+
+float random(float min, float max);
+} // namespace math

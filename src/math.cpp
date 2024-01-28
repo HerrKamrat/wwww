@@ -25,3 +25,11 @@ bool Rect::contains(const Vec2& p) const {
 bool Rect::collision(const Rect& other) const {
     return ::collision(*this, other);
 }
+
+float math::random() {
+    return static_cast<float>(rand()) / static_cast<float>(RAND_MAX);
+};
+
+float math::random(float min, float max) {
+    return min + (max - min) * random();
+};

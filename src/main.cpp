@@ -1,9 +1,5 @@
 #include "wasm4.h"
 
-#include <array>
-#include <stdio.h>
-#include <utility>
-
 #include "app.hpp"
 #include "assets.hpp"
 #include "entity.hpp"
@@ -11,13 +7,33 @@
 #include "object_pool.hpp"
 #include "renderer.hpp"
 #include "utils.hpp"
+#include <array>
+#include <utility>
 
 struct GameState {
     int health = 3;
-    int score = 100;
+    int score = 0;
+    struct Camera {
+        Vec2 position{0, 0};
+        Vec2 velocity{0, 0};
+    } camera;
+};
+
+struct World {
+    const Rect bounds = {{0, 0}, {SCREEN_SIZE, SCREEN_SIZE}};
+    ObjectPool<Tile, 124> tiles;
+    ObjectPool<Entity, 100> entities;
+    ObjectPool<Projectile, 100> projectiles;
 };
 
 GameState state;
+World world;
+
+struct UpdateContext {
+    int frame = 0;
+};
+
+UpdateContext updateContext;
 
 class Gui {
   public:
@@ -36,8 +52,14 @@ class Gui {
 
         char buffer[8] = {'\0'};
         auto str = to_string(state.score, buffer);
-        renderer.drawText({str.begin(), str.end()}, 103 + 8 + (6 - str.size()) * 8, 4);
+        renderer.drawText({str.begin(), str.end()}, 103 + 8 + (6 - (int)str.size()) * 8, 4);
     };
+};
+
+class Physics {
+  public:
+    void update(){};
+    void render(){};
 };
 
 #if !defined(X)
@@ -45,58 +67,54 @@ class Gui {
 Renderer renderer;
 Gui gui;
 
-int frame = 0;
-bool debug = false;
-
-constexpr Tile t(int x, int y, int sprite) {
-    return {{{x * 16.f, y * 16.f}, {16, 16}}, sprite};
-}
-
-const Rect bounds = {{0, 0}, {SCREEN_SIZE, SCREEN_SIZE}};
-
-Entity player{
-    {{80, 0}, {16, 16}}, {}, 0, {}, {}, 0, nullptr, {assets::player_idle_animation, assets::player_walk_animation}};
-Tile tiles[] = {t(0, 0, 19 + 20 * 14), t(0, 1, 17 + 20 * 14), t(0, 2, 17 + 20 * 14), t(0, 3, 17 + 20 * 14),
-                t(0, 4, 17 + 20 * 14), t(0, 5, 17 + 20 * 14), t(0, 6, 17 + 20 * 14), t(0, 7, 17 + 20 * 14),
-                t(0, 8, 17 + 20 * 14), t(0, 9, 19 + 20 * 13),
-
-                t(9, 0, 19 + 20 * 11), t(9, 1, 15 + 20 * 14), t(9, 2, 15 + 20 * 14), t(9, 3, 15 + 20 * 14),
-                t(9, 4, 15 + 20 * 14), t(9, 5, 15 + 20 * 14), t(9, 6, 15 + 20 * 14), t(9, 7, 15 + 20 * 14),
-                t(9, 8, 15 + 20 * 14), t(9, 9, 19 + 20 * 12),
-
-                t(1, 0, 16 + 20 * 15), t(2, 0, 16 + 20 * 15), t(3, 0, 17 + 20 * 15),
-
-                t(6, 0, 15 + 20 * 15), t(7, 0, 16 + 20 * 15), t(8, 0, 16 + 20 * 15),
-
-                t(1, 9, 16 + 20 * 13), t(2, 9, 16 + 20 * 13), t(3, 9, 17 + 20 * 13),
-
-                t(6, 9, 15 + 20 * 13), t(7, 9, 16 + 20 * 13), t(8, 9, 16 + 20 * 13),
-
-                t(3, 6, 84),           t(4, 6, 85),           t(5, 6, 85),           t(6, 6, 86),
-
-                t(1, 3, 85),           t(2, 3, 85),           t(3, 3, 85),           t(4, 3, 86)};
-
-ObjectPool<Projectile, 100> projectilesPool;
-ObjectPool<Tile, 124> tilePool;
-ObjectPool<Entity, 2> enemies;
+decltype(World::entities)::Handle player;
 
 void start() {
-    // clang-format off
-    int map[] = {
-        1,1,1,1,1,0,1,1,1,1,1,
-        1,0,0,0,0,0,0,0,0,0,1,
-        1,0,0,0,0,0,0,0,0,0,1,
-        1,0,0,0,1,1,1,0,0,0,1,
-        1,0,0,0,0,0,0,0,0,0,1,
-        1,0,0,0,0,0,0,0,0,0,1,
-        1,0,0,0,0,0,0,0,0,0,1,
-        1,0,0,0,0,0,0,0,0,0,1,
-        1,0,0,0,0,0,0,0,0,0,1,
-        1,1,1,1,1,0,1,1,1,1,1,
-    };
-    // clang-format on
+    {
+        int width = 10;
+        int height = 11;
+        int map[] = {
+            // clang-format off
+            219,316,316,317,  0,  0,315,316,316,239,
+            297,  0,  0,  0,  0,  0,  0,  0,  0,295,
+            297,  0,  0,  0,  0,  0,  0,  0,  0,295,
+            297,  0,  0, 84, 85, 85, 86,  0,  0,295,
+            297,  0,  0,  0,  0,  0,  0,  0,  0,295,
+            297,  0,  0,  0,  0,  0, 84, 85, 85,295,
+            297, 85, 85, 86,  0,  0,  0,  0,  0,295,
+            297,  0,  0,  0,  0,  0,  0,  0,  0,295,
+            297,  0,  0, 84, 85, 85, 86,  0,  0,295,
+            297,  0,  0,  0,  0,  0,  0,  0,  0,295,
+            199,276,276,277,  0,  0,275,276,276,259,
+            // clang-format on
 
-    player.directionX = 1;
+        };
+        for (int x = 0; x < width; x++) {
+            for (int y = 0; y < height; y++) {
+                const int type = map[y * width + x];
+                if (type == 0) {
+                    continue;
+                }
+                float h = 16;
+                if (type < 100) {
+                    h = 8;
+                }
+                // TODO: fix camera offset
+                world.tiles.create(Rect{{x * 16.f, y * 16.f - 8.0f}, {16, h}}, type);
+            }
+        }
+    }
+
+    player = world.entities.create(Entity{1,
+                                          {{16 * 4.5f, 16 * 5.0f}, {16, 16}},
+                                          {},
+                                          1,
+                                          {},
+                                          {},
+                                          0,
+                                          nullptr,
+                                          {assets::player_idle_animation, assets::player_walk_animation}});
+
     renderer.setPalette(assets::palettes::lava_gb);
     renderer.useColor(0x4321);
 }
@@ -139,12 +157,19 @@ void updateForCollisionY(Entity& entity, const Rect& rect) {
     }
 }
 
-void updatePlayer(Entity& entity) {
+void updateEntity(Entity& entity, World& world) {
     const float maxSpeed = 1.0f;
     const float jumpImpulse = 4.f;
     const float gravity = 0.15f;
     const float acc = 0.15f;
 
+    if (entity.invulnerable > 0) {
+        entity.invulnerable -= 1;
+    }
+
+    entity.visible = (entity.invulnerable % 8) < 4;
+
+    Rect& b = entity.bounds;
     Vec2& o = entity.bounds.origin;
     Vec2& v = entity.velocity;
 
@@ -155,7 +180,7 @@ void updatePlayer(Entity& entity) {
     } else {
         entity.animation = entity.animations.idle;
     }
-    bool jump = (entity.input.up);
+    bool jump = (entity.input.up || entity.input.secondaryAction);
 
     v.x = (v.x * (1 - acc)) + ((float)inputX * maxSpeed * acc);
     if (v.x < -maxSpeed) {
@@ -178,27 +203,19 @@ void updatePlayer(Entity& entity) {
         }
     }
 
-    entity.collisions = {false, false, false, false};
-    for (const auto& tile : tiles) {
-        updateForCollisionY(entity, tile.bounds);
-    }
-    for (const auto& tile : tiles) {
-        updateForCollisionX(entity, tile.bounds);
-    }
+    o += v;
 
-    o.x += v.x;
-    o.y += v.y;
-
-    if (o.y >= SCREEN_SIZE) {
-        o.y -= SCREEN_SIZE;
-    } else if (o.y + bounds.size.height <= 0) {
-        o.y += SCREEN_SIZE;
+    if (b.top() >= world.bounds.bottom()) {
+        o.y -= world.bounds.height();
+    } else if (b.bottom() <= world.bounds.top()) {
+        o.y += world.bounds.height();
     }
 
     if (entity.input.primaryAction) {
-        auto handle = projectilesPool.alloc();
-        if (handle != projectilesPool.invalid_handle) {
-            auto& p = *projectilesPool.get(handle);
+        auto handle = world.projectiles.alloc();
+        if (handle != world.projectiles.invalid_handle) {
+            auto& p = *world.projectiles.get(handle);
+            p.team = entity.team;
             p.position = entity.bounds.origin;
             // p.position.x += entity.bounds.size.width / 2.0f;
             if (entity.directionX > 0) {
@@ -206,6 +223,8 @@ void updatePlayer(Entity& entity) {
             }
             p.position.y += entity.bounds.size.height / 2.0f;
             p.velocity.x = (float)entity.directionX * 5.0f;
+            p.velocity.y = math::random(-1.0f, 1.0f);
+            state.camera.velocity += p.velocity * 0.1f;
             p.active = true;
 
             entity.velocity.x -= (float)entity.directionX * 0.1f;
@@ -213,69 +232,105 @@ void updatePlayer(Entity& entity) {
     }
 
     if (entity.animation && entity.animation[0] > 0) {
-        const int index = (frame / 10 % entity.animation[0]) + 1;
+        const int index = (updateContext.frame / 10 % entity.animation[0]) + 1;
         entity.sprite = entity.animation[index];
+    }
+
+    entity.collisions = {false, false, false, false};
+    for (const auto& tile : world.tiles) {
+        updateForCollisionY(entity, tile.bounds);
+    }
+    for (const auto& tile : world.tiles) {
+        updateForCollisionX(entity, tile.bounds);
     }
 };
 
 void doUpdate() {
-    frame += 1;
+    updateContext.frame += 1;
+    auto& camera = state.camera;
 
-    if (frame % (60 * 2) == 0) {
-        Entity enemy{{{80, 0}, {16, 16}},
+    camera.position += camera.velocity;
+    camera.velocity = camera.velocity * 0.9f - camera.position * 0.1f;
+
+    if (updateContext.frame % (60 * 2) == 0) {
+        bool left = math::random() < 0.5;
+        Entity enemy{2,
+                     {{16 * 4.5f, 0}, {16, 16}},
                      {},
                      0,
-                     {false, false, true, false, false, false},
+                     {false, false, left, !left, false, false},
                      {},
                      0,
                      nullptr,
                      {assets::enemy_idle_animation, assets::enemy_walk_animation}};
-        enemies.create(enemy);
-        // enemies.create();
+        world.entities.create(enemy);
     }
 
-    {
+    auto playerEntity = world.entities.get(player);
+
+    if (playerEntity) {
         const uint8_t gamepad = *GAMEPAD1;
-        Entity::Input& input = player.input;
-        input.up = gamepad & BUTTON_UP;
-        input.left = gamepad & BUTTON_LEFT;
-        input.right = gamepad & BUTTON_RIGHT;
-        input.primaryAction = gamepad & BUTTON_1;
-        input.secondaryAction = gamepad & BUTTON_2;
-        updatePlayer(player);
-    }
+        playerEntity->input.updateForGamepad(gamepad);
 
-    for (auto& enemy : enemies) {
-        updatePlayer(enemy);
-        if (enemy.collisions.left) {
-            enemy.input.left = false;
-            enemy.input.right = true;
-        } else if (enemy.collisions.right) {
-            enemy.input.left = true;
-            enemy.input.right = false;
+        if (playerEntity->invulnerable <= 0) {
+            for (auto& entity : world.entities) {
+                if (&entity == playerEntity) {
+                    continue;
+                }
+
+                if (entity.bounds.collision(playerEntity->bounds)) {
+                    state.health -= 1;
+
+                    playerEntity->invulnerable = 45;
+                    bool left = entity.bounds.left() < playerEntity->bounds.left();
+
+                    playerEntity->velocity.x += left ? 5 : -5;
+
+                    if (state.health <= 0) {
+                        world.entities.free(player);
+                    }
+                    break;
+                }
+            }
         }
     }
 
-    for (auto& p : projectilesPool) {
-        if (!bounds.contains(p.position)) {
-            projectilesPool.free(&p);
+    for (auto& entity : world.entities) {
+        updateEntity(entity, world);
+        if (entity.collisions.left) {
+            entity.input.left = false;
+            entity.input.right = true;
+        } else if (entity.collisions.right) {
+            entity.input.left = true;
+            entity.input.right = false;
+        }
+    }
+
+    for (auto& p : world.projectiles) {
+
+        p.update();
+        if (!world.bounds.contains(p.position)) {
+            world.projectiles.free(&p);
             continue;
         }
 
         bool free = false;
-        for (auto& e : enemies) {
+        for (auto& e : world.entities) {
+            if (e.team == p.team) {
+                continue;
+            }
             if (e.bounds.contains(p.position)) {
-                projectilesPool.free(&p);
-                enemies.free(&e);
+                world.projectiles.free(&p);
+                world.entities.free(&e);
                 free = true;
                 state.score += 25;
                 break;
             }
         }
 
-        for (const auto& tile : tiles) {
+        for (const auto& tile : world.tiles) {
             if (tile.bounds.contains(p.position)) {
-                projectilesPool.free(&p);
+                world.projectiles.free(&p);
                 free = true;
                 break;
             }
@@ -284,9 +339,6 @@ void doUpdate() {
         if (free) {
             continue;
         }
-
-        p.position.x += p.velocity.x;
-        p.position.y += p.velocity.y;
     }
 
     gui.update();
@@ -295,27 +347,37 @@ void doUpdate() {
 void doRender() {
     renderer.useColor(0x0321);
     renderer.clear(4);
+    renderer.setViewport(state.camera.position.x, state.camera.position.y);
 
-    for (const auto& t : tiles) {
+    for (const auto& t : world.tiles) {
         t.render(renderer);
     }
 
-    for (const auto& p : projectilesPool) {
-        renderer.draw(p.position);
+    for (const auto& p : world.projectiles) {
+        p.render(renderer);
     }
 
-    player.render(renderer);
-    for (auto& enemy : enemies) {
-        enemy.render(renderer);
+    for (auto& entity : world.entities) {
+        entity.render(renderer);
     }
 
     gui.render(renderer);
+
+    renderer.useColor(1);
+    renderer.draw({{0, 159}, {1, 1}});
+    renderer.useColor(2);
+    renderer.draw({{1, 159}, {1, 1}});
+    renderer.useColor(3);
+    renderer.draw({{2, 159}, {1, 1}});
+    renderer.useColor(4);
+    renderer.draw({{3, 159}, {1, 1}});
 }
 
 void update() {
     doUpdate();
     doRender();
 }
+
 #else
 
 App app;

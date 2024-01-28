@@ -29,6 +29,11 @@ void Renderer::draw(const Vec2& v) {
     rect((int)(v.x + cameraPosition.x), (int)(v.y + cameraPosition.y), 1, 1);
 }
 
+void Renderer::draw(const Vec2& p0, const Vec2& p1) {
+    line((int)(p0.x + cameraPosition.x), (int)(p0.y + cameraPosition.y), (int)(p1.x + cameraPosition.x),
+         (int)(p1.y + cameraPosition.y));
+}
+
 void Renderer::draw(const Rect& r) {
     rect((int)(r.origin.x + cameraPosition.x), (int)(r.origin.y + cameraPosition.y), (uint32_t)r.size.width,
          (uint32_t)r.size.height);
@@ -55,8 +60,8 @@ void Renderer::drawText(std::span<char> text, int x, int y) {
         drawText(text.data(), x, y);
     } else {
         char tmp[2] = " ";
-        for (int i = 0; i < text.size(); i++) {
-            tmp[0] = text[i];
+        for (int i = 0; i < (int)text.size(); i++) {
+            tmp[0] = text[(size_t)i];
             drawText(tmp, x + i * 8, y);
         }
     }

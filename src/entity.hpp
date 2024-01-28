@@ -4,6 +4,8 @@
 #include "renderer.hpp"
 
 struct Entity {
+    // private:
+    int team;
     Rect bounds;
     Vec2 velocity;
     int directionX;
@@ -14,6 +16,8 @@ struct Entity {
         bool right;
         bool primaryAction;
         bool secondaryAction;
+
+        void updateForGamepad(uint8_t gamepad);
     } input;
 
     struct Collisions {
@@ -31,17 +35,24 @@ struct Entity {
         const int* walk;
     } animations;
 
+    bool visible = true;
+    int invulnerable = 0;
+
     void update();
     void render(Renderer& renderer) const;
 };
 
 struct Projectile {
+    int team;
     Vec2 position;
     Vec2 velocity;
     bool active;
 
     void update();
     void render(Renderer& renderer) const;
+
+  private:
+    Vec2 previousPosition;
 };
 
 struct Tile {

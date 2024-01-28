@@ -18,7 +18,7 @@ WASM_OPT_FLAGS = -Oz --zero-filled-memory --strip-producers --enable-bulk-memory
 DEBUG = 0
 
 # Compilation flags
-CFLAGS = -W -Wall -Wextra -Wno-unused -Wconversion -Wsign-conversion -MMD -MP -fno-exceptions
+CFLAGS = -W -Wall -Wextra -Wno-unused -Wconversion -Wsign-conversion -MMD -MP -fno-exceptions -std=c++2c
 ifeq ($(DEBUG), 1)
 	CFLAGS += -DDEBUG -O0 -g
 else

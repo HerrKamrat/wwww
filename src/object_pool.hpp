@@ -68,7 +68,6 @@ struct ObjectPool {
         auto handle = alloc();
         if (handle) {
             auto ptr = get(handle);
-            T t{std::forward<Args>(args)...};
             *ptr = T{std::forward<Args>(args)...};
         }
         return handle;
@@ -119,7 +118,6 @@ struct ObjectPool {
         if (slot) {
             return &(slot->object);
         }
-        tracef("get: %d, no slot", handle);
         return nullptr;
     };
 };
