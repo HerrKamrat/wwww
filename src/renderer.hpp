@@ -23,6 +23,9 @@ class Renderer {
     };
 
     void setPalette(const uint32_t palette[4]);
+    void setPalette(const Color palette[4]) {
+        setPalette(reinterpret_cast<const uint32_t*>(palette));
+    };
 
     void clear(uint8_t color);
     void useColor(const uint16_t i);

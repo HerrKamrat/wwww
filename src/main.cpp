@@ -10,6 +10,8 @@
 #include <array>
 #include <utility>
 
+float light = 0.0f;
+
 struct GameState {
     int health = 3;
     int score = 0;
@@ -157,6 +159,8 @@ void updateForCollisionY(Entity& entity, const Rect& rect) {
     }
 }
 
+int lastPrimaryActionFrame = 0;
+int primaryActionInterval = 30;
 void updateEntity(Entity& entity, World& world) {
     const float maxSpeed = 1.0f;
     const float jumpImpulse = 4.f;
@@ -211,23 +215,27 @@ void updateEntity(Entity& entity, World& world) {
         o.y += world.bounds.height();
     }
 
-    if (entity.input.primaryAction) {
-        auto handle = world.projectiles.alloc();
-        if (handle != world.projectiles.invalid_handle) {
-            auto& p = *world.projectiles.get(handle);
-            p.team = entity.team;
-            p.position = entity.bounds.origin;
-            // p.position.x += entity.bounds.size.width / 2.0f;
-            if (entity.directionX > 0) {
-                p.position.x += entity.bounds.size.width;
-            }
-            p.position.y += entity.bounds.size.height / 2.0f;
-            p.velocity.x = (float)entity.directionX * 5.0f;
-            p.velocity.y = math::random(-1.0f, 1.0f);
-            state.camera.velocity += p.velocity * 0.1f;
-            p.active = true;
+    if (entity.input.primaryAction && (lastPrimaryActionFrame + primaryActionInterval < updateContext.frame)) {
+        lastPrimaryActionFrame = updateContext.frame;
+        light += 0.2f;
+        for (int i = 0; i < 5; i++) {
+            auto handle = world.projectiles.alloc();
+            if (handle != world.projectiles.invalid_handle) {
+                auto& p = *world.projectiles.get(handle);
+                p.team = entity.team;
+                p.position = entity.bounds.origin;
+                // p.position.x += entity.bounds.size.width / 2.0f;
+                if (entity.directionX > 0) {
+                    p.position.x += entity.bounds.size.width;
+                }
+                p.position.y += entity.bounds.size.height / 2.0f;
+                p.velocity.x = (float)entity.directionX * 5.0f;
+                p.velocity.y = math::random(-1.0f, 1.0f);
+                state.camera.velocity += p.velocity * 0.1f;
+                p.active = true;
 
-            entity.velocity.x -= (float)entity.directionX * 0.1f;
+                entity.velocity.x -= (float)entity.directionX * 0.1f;
+            }
         }
     }
 
@@ -245,9 +253,23 @@ void updateEntity(Entity& entity, World& world) {
     }
 };
 
+Color c[4] = {{255, 255, 255, 255}, {255, 255, 255, 255}, {255, 255, 255, 255}, {255, 255, 255, 255}};
 void doUpdate() {
     updateContext.frame += 1;
     auto& camera = state.camera;
+
+    if (light > 0) {
+        light -= 1.0f / 30;
+        if (light < 0) {
+            light = 0;
+        }
+    }
+    Color white = {255, 255, 255, 255};
+    auto p = assets::palettes::lava_gb;
+    for (int i = 0; i < 4; i++) {
+        c[i] = p[i] * (1.0f - light) + white * (light);
+    }
+    renderer.setPalette(c);
 
     camera.position += camera.velocity;
     camera.velocity = camera.velocity * 0.9f - camera.position * 0.1f;

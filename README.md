@@ -1,6 +1,25 @@
-# hello-wasm
+# WWWW
 
 A game written in C for the [WASM-4](https://wasm4.org) fantasy console.
+
+# Changelog
+
+## [0.1.1] - 2024-01-31
+
+### Added
+
+- Color utility functions
+
+### Changed
+
+- Changed weapon behavior
+
+## [0.1.0] - 2024-01-30
+
+### Added
+
+- A messy draft of a structure for a game, in heavy need of refactoring
+- Artwork from [Kenney.nl](www.kenney.nl)
 
 ## Building
 

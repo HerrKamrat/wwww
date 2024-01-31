@@ -88,6 +88,73 @@ struct Color {
     uint8_t g;
     uint8_t r;
     uint8_t a;
+
+    const uint32_t& asInt() const {
+        return *reinterpret_cast<const uint32_t*>(&this->b);
+    }
+
+    Color& operator+=(Color const& other) {
+        int i = other.b;
+        b = (uint8_t)(b + i);
+        i = other.g;
+        g = (uint8_t)(g + i);
+        i = other.r;
+        r = (uint8_t)(r + i);
+        i = other.a;
+        a = (uint8_t)(a + i);
+        return *this;
+    }
+
+    Color& operator-=(Color const& other) {
+        int i = other.b;
+        b = (uint8_t)(b - i);
+        i = other.g;
+        g = (uint8_t)(g - i);
+        i = other.r;
+        r = (uint8_t)(r - i);
+        i = other.a;
+        a = (uint8_t)(a - i);
+        return *this;
+    }
+
+    Color operator+(const Color& other) const {
+        Color out = *this;
+        out += other;
+        return out;
+    };
+
+    Color operator-(const Color& other) const {
+        Color out = *this;
+        out -= other;
+        return out;
+    };
+
+    Color operator*(const float& f) const {
+        Color out = *this;
+
+        float i = b;
+        out.b = (uint8_t)(i * f);
+        i = g;
+        out.g = (uint8_t)(i * f);
+        i = r;
+        out.r = (uint8_t)(i * f);
+        i = a;
+        out.a = (uint8_t)(i * f);
+
+        return out;
+    };
+    Color operator/(const float& f) const {
+        Color out = *this;
+        float i = b;
+        out.b = (uint8_t)(i / f);
+        i = g;
+        out.g = (uint8_t)(i / f);
+        i = r;
+        out.r = (uint8_t)(i / f);
+        i = a;
+        out.a = (uint8_t)(i / f);
+        return out;
+    };
 };
 
 namespace math {
